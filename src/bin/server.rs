@@ -1,8 +1,10 @@
-use std::process::Command;
-use std::{io::Read, net::TcpListener, thread};
+use std::fs;
+use std::io::Read;
+use std::path::Path;
+use std::{net::TcpListener, thread};
 
 fn main() -> std::io::Result<()> {
-    let server = TcpListener::bind("127.0.0.1:33369")?;
+    let server = TcpListener::bind("0.0.0.0:33369")?;
     for stream in server.incoming() {
         let mut stream = stream?;
         println!("Connection established!");
@@ -18,13 +20,13 @@ fn main() -> std::io::Result<()> {
             match buf[..] {
                 [1] => {
                     println!("Turning on");
-                    turn_on();
+                    change_led("actpwr").unwrap();
                 }
                 [2] => {
                     println!("Turning off");
-                    turn_off();
+                    change_led("none").unwrap();
                 }
-                _ => panic!("Unknown command: {:?}", buf),
+                _ => eprintln!("Unknown buffer: {:?}", buf),
             }
         });
     }
@@ -32,12 +34,18 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-fn turn_on() {
-    let out = Command::new("cmd")
-        .args(["/C", "echo test"])
-        .output()
-        .unwrap();
-    println!("{}", String::from_utf8(out.stdout).unwrap());
+/// This will echo `power_str` to the file `/sys/class/leds/led0/trigger` if it exists. Equivalent to `echo <power_str> | sudo tee /sys/class/leds/led0/trigger`
+///
+/// The function will
+fn change_led(power_str: &str) -> std::io::Result<()> {
+    let path = Path::new("/sys/class/leds/led0/trigger");
+    if path.exists() {
+        fs::write(path, power_str)?;
+    } else {
+        eprintln!(
+            "Cannot change LED, controll file not found: `/sys/class/leds/led0/trigger`, make sure the server is running on a Raspberry Pi zero"
+        );
+        eprintln!("Simulating setting power led to: {}", power_str);
+    }
+    Ok(())
 }
-
-fn turn_off() {}

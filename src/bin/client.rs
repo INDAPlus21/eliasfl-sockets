@@ -2,21 +2,30 @@ use std::error::Error;
 use std::io;
 use std::io::{ErrorKind, Write};
 use std::net::TcpStream;
+use std::process::exit;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut stream = TcpStream::connect("127.0.0.1:33369")?;
-    // let message = b"Hello from client :D";
-    // write(&mut stream, message)?;
-    // let bytes = message;
-    // println!("{}: {:?}", bytes.len(), bytes);
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.len() <= 1 {
+        println!("Usage: {} IP_ADDR", args[0]);
+        exit(0);
+    }
+
+    let mut stream = TcpStream::connect(format!("{}:33369", args[1]))?;
 
     loop {
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
 
-        let buffer = handle_stdin(input)?;
-
-        write(&mut stream, &buffer)?;
+        match handle_stdin(input) {
+            Ok(buffer) => {
+                write(&mut stream, &buffer)?;
+            }
+            Err(error) => {
+                eprintln!("Not sending request: {}", error.to_string());
+            }
+        }
     }
 }
 
